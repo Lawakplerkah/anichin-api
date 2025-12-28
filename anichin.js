@@ -293,52 +293,106 @@ class Anichin {
 
     return { title, thumb, alt, synopsis, info, tags, episodes };
   }
+// --- 9. EPISODE ---
+async episode(urlOrSlug) {
+  const path = /^https?:\/\//.test(urlOrSlug)
+    ? urlOrSlug
+    : `/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
 
-  // --- 9. EPISODE ---
-  async episode(urlOrSlug) {
-    const path = /^https?:\/\//.test(urlOrSlug) ? urlOrSlug : `/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
+  const html = await this._get(path);
+  const $ = cheerio.load(html);
 
-    const html = await this._get(path);
-    const $ = cheerio.load(html);
+  // Judul & Nama Series
+  const title = $('h1.entry-title').text().trim() || null;
+  const seriesName = $('h2[itemprop="partOfSeries"]').text().trim() || null;
 
-    const title = $(".entry-title").text().trim() || null;
-    const epNum = $('meta[itemprop="episodeNumber"]').attr("content") || title.match(/Episode\s+(\d+)/i)?.[1] || null;
+  // Episode Number
+  const epNum =
+    $('meta[itemprop="episodeNumber"]').attr("content") ||
+    title.match(/Episode\s+(\d+)/i)?.[1] ||
+    null;
 
-    const img = $(".megavid .tb img").attr("src") || $(".thumb img").attr("src") || null;
+  // Thumbnail / Poster
+  const thumbnail =
+    $(".single-info img").attr("src") ||
+    $(".megavid .tb img").attr("src") ||
+    $(".thumb img").attr("src") ||
+    null;
 
-    const embedSrc = $("#pembed iframe").attr("src") || $("#embed_holder iframe").attr("src") || null;
+  // Info meta (Status, Studio, dll)
+  const info = {};
+  $(".spe span").each((i, el) => {
+    const txt = $(el).text();
+    const parts = txt.split(":");
+    if (parts.length > 1) {
+      const key = parts[0].trim();
+      const value = parts.slice(1).join(":").trim();
+      info[key] = value;
+    }
+  });
 
-    const download = [];
-    $(".soraurlx").each((i, el) => {
-      const q = $(el).find("strong").text().trim() || null;
-      const links = [];
-      $(el)
-        .find("a")
-        .each((j, a) => {
-          links.push({ name: $(a).text().trim(), href: $(a).attr("href") });
+  // Link Download (360,480,720,1080)
+  const downloads = [];
+  $(".soraurlx").each((i, el) => {
+    const quality = $(el).find("strong").text().trim() || null;
+    const links = [];
+    $(el)
+      .find("a")
+      .each((j, a) => {
+        links.push({
+          provider: $(a).text().trim(),
+          url: $(a).attr("href"),
         });
-
-      download.push({ quality: q, links });
-    });
-
-    const related = [];
-    $(".stylefiv .bsx").each((i, el) => {
-      const a = $(el).find("a");
-      related.push({
-        title: a.attr("title") || a.find("h2").text().trim(),
-        href: a.attr("href"),
-        image: a.find("img").attr("src"),
       });
+    if (quality) downloads.push({ quality, links });
+  });
+
+  // Server streaming (list dropdown)
+  const streamingServers = [];
+  $('.mirror option').each((i, el) => {
+    const t = $(el).text().trim();
+    if (t && t !== "Select Video Server") streamingServers.push(t);
+  });
+
+  // Iframe utama / default stream
+  const embedSrc =
+    $("#embed_holder iframe").attr("src") ||
+    $("#pembed iframe").attr("src") ||
+    null;
+
+  // Related Anime
+  const related = [];
+  $(".stylefiv .bsx").each((i, el) => {
+    const a = $(el).find("a");
+    related.push({
+      title: a.attr("title") || a.find("h2").text().trim(),
+      href: a.attr("href"),
+      image: a.find("img").attr("src"),
     });
+  });
 
-    const nav = {
-      prev: $('.naveps .nvs a[rel="prev"]').attr("href") || null,
-      next: $('.naveps .nvs a[rel="next"]').attr("href") || null,
-      allEpisodes: $(".naveps .nvsc a").attr("href") || null,
-    };
+  // Navigation Prev / Next Episode
+  const nav = {
+    prev: $('.naveps .nvs a[rel="prev"]').attr("href") || null,
+    next: $('.naveps .nvs a[rel="next"]').attr("href") || null,
+    allEpisodes: $(".naveps .nvsc a").attr("href") || null,
+  };
 
-    return { title, episode: epNum, img, embedSrc, download, related, nav };
-  }
+  return {
+    title,
+    series: seriesName,
+    episode: epNum,
+    thumbnail,
+    info,
+    streaming: {
+      current_source: embedSrc,
+      available_servers: streamingServers,
+    },
+    downloads,
+    related,
+    nav,
+  };
+}
 
   // --- 10. SEARCH ---
   async search(query, page = 1) {
