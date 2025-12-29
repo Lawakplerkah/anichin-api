@@ -249,99 +249,49 @@ class Anichin {
     return items;
   }
 // --- 8. DETAIL SERIES (UPDATED) ---
-async detail(urlOrSlug) {
-  const path = /^https?:\/\//.test(urlOrSlug)
-    ? urlOrSlug
-    : `/anime/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
+ async detail(urlOrSlug) {
+    const path = /^https?:\/\//.test(urlOrSlug) ? urlOrSlug : `/seri/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`
 
-  const html = await this._get(path);
-  const $ = cheerio.load(html);
+    const html = await this._get(path)
+    const $ = cheerio.load(html)
 
-  const result = {
-    metadata: {},
-    seriesInfo: { rating: "", details: {}, genres: [], synopsis: "" },
-    batches: [],
-    episodes: []
-  };
+    const title = $(".entry-title").first().text().trim() || null
+    const thumb = $(".thumbook img").attr("src") || null
 
-  // Metadata
-  result.metadata.title = $("h1.entry-title").text().trim() || null;
-  result.metadata.thumbnail = $('meta[property="og:image"]').attr("content") || null;
-  result.metadata.description = $('meta[property="og:description"]').attr("content") || null;
+    const alt = $(".alter").text().trim() || null
+    const synopsis = $(".synp .entry-content").text().trim() || null
 
-  $('script[type="application/ld+json"]').each((i, el) => {
-    try {
-      const json = JSON.parse($(el).html());
-      if (json['@type'] === 'TVSeries' || json['@type'] === 'BlogPosting') {
-        result.metadata.datePublished = json.datePublished || null;
-        result.metadata.episodeNumber = json.episodeNumber || null;
-        result.metadata.partOfSeries = json.partOfSeries?.name || json.name || null;
-      }
-    } catch {}
-  });
+    const info = {}
+    $(".infox .spe span").each((i, el) => {
+      const txt = $(el).text().replace(/\s+/g, " ").trim()
+      const [key, ...rest] = txt.split(":")
+      if (key && rest.length > 0) info[key.trim().toLowerCase()] = rest.join(":").trim()
+    })
 
-  // Series info (rating + key:value meta)
-  result.seriesInfo.rating = $(".rating strong").text().replace(/Rating/i, "").trim();
+    const tags = []
+    $(".bottom.tags a").each((i, el) => {
+      tags.push({
+        name: $(el).text().trim(),
+        href: $(el).attr("href"),
+      })
+    })
 
-  $(".info-content .spe span").each((i, el) => {
-    const text = $(el).text().trim();
-    const [key, ...rest] = text.split(":");
-    if (!key || !rest) return;
+    const episodes = []
+    $(".eplister ul li").each((i, el) => {
+      const a = $(el).find("a")
+      const num = $(el).find(".epl-num").text().trim() || null
+      const etitle = $(el).find(".epl-title").text().trim() || null
+      const date = $(el).find(".epl-date").text().trim() || null
+      episodes.push({
+        num,
+        etitle,
+        href: a.attr("href") || null,
+        date,
+      })
+    })
 
-    const val = $(el).find("a").length
-      ? $(el).find("a").map((_, a) => $(a).text()).get().join(", ")
-      : rest.join(":").trim();
-
-    result.seriesInfo.details[key.trim()] = val;
-  });
-
-  $(".genxed a").each((i, el) => {
-    result.seriesInfo.genres.push($(el).text().trim());
-  });
-
-  result.seriesInfo.synopsis = $(".desc, .synopsis, .synp .entry-content")
-    .text()
-    .trim() || null;
-
-  // Batch download
-  $(".soraddlx").each((_, block) => {
-    const name = $(block).find(".sorattlx h3").text().trim();
-    const batch = { name, links: {} };
-
-    $(block)
-      .find(".soraurlx")
-      .each((__, qblock) => {
-        const quality = $(qblock).find("strong").text().trim();
-        if (!quality) return;
-        const links = [];
-
-        $(qblock)
-          .find("a")
-          .each((___, a) => {
-            links.push({
-              provider: $(a).text().trim(),
-              url: $(a).attr("href"),
-            });
-          });
-
-        batch.links[quality] = links;
-      });
-
-    if (name) result.batches.push(batch);
-  });
-
-  // Episode list
-  $(".eplister ul li").each((_, el) => {
-    result.episodes.push({
-      episode: $(el).find(".epl-num").text().trim(),
-      title: $(el).find(".epl-title").text().trim(),
-      releaseDate: $(el).find(".epl-date").text().trim(),
-      url: $(el).find("a").attr("href"),
-    });
-  });
-
-  return result;
-}
+    return { title, thumb, alt, synopsis, info, tags, episodes }
+  }
 // --- 9. EPISODE (UPDATED) ---
 async episode(urlOrSlug) {
   const path = /^https?:\/\//.test(urlOrSlug)
