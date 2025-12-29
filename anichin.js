@@ -248,52 +248,101 @@ class Anichin {
 
     return items;
   }
+// --- 8. DETAIL SERIES (UPDATED) ---
+async detail(urlOrSlug) {
+  const path = /^https?:\/\//.test(urlOrSlug)
+    ? urlOrSlug
+    : `/anime/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
 
-  // --- 8. DETAIL ---
-  async detail(urlOrSlug) {
-    const path = /^https?:\/\//.test(urlOrSlug) ? urlOrSlug : `/seri/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
+  const html = await this._get(path);
+  const $ = cheerio.load(html);
 
-    const html = await this._get(path);
-    const $ = cheerio.load(html);
+  const result = {
+    metadata: {},
+    seriesInfo: { rating: "", details: {}, genres: [], synopsis: "" },
+    batches: [],
+    episodes: []
+  };
 
-    const title = $(".entry-title").first().text().trim() || null;
-    const thumb = $(".thumbook img").attr("src") || null;
+  // Metadata
+  result.metadata.title = $("h1.entry-title").text().trim() || null;
+  result.metadata.thumbnail = $('meta[property="og:image"]').attr("content") || null;
+  result.metadata.description = $('meta[property="og:description"]').attr("content") || null;
 
-    const alt = $(".alter").text().trim() || null;
-    const synopsis = $(".synp .entry-content").text().trim() || null;
+  $('script[type="application/ld+json"]').each((i, el) => {
+    try {
+      const json = JSON.parse($(el).html());
+      if (json['@type'] === 'TVSeries' || json['@type'] === 'BlogPosting') {
+        result.metadata.datePublished = json.datePublished || null;
+        result.metadata.episodeNumber = json.episodeNumber || null;
+        result.metadata.partOfSeries = json.partOfSeries?.name || json.name || null;
+      }
+    } catch {}
+  });
 
-    const info = {};
-    $(".infox .spe span").each((i, el) => {
-      const txt = $(el).text().replace(/\s+/g, " ").trim();
-      const [key, ...rest] = txt.split(":");
-      if (key && rest.length > 0) info[key.trim().toLowerCase()] = rest.join(":").trim();
-    });
+  // Series info (rating + key:value meta)
+  result.seriesInfo.rating = $(".rating strong").text().replace(/Rating/i, "").trim();
 
-    const tags = [];
-    $(".bottom.tags a").each((i, el) => {
-      tags.push({
-        name: $(el).text().trim(),
-        href: $(el).attr("href"),
+  $(".info-content .spe span").each((i, el) => {
+    const text = $(el).text().trim();
+    const [key, ...rest] = text.split(":");
+    if (!key || !rest) return;
+
+    const val = $(el).find("a").length
+      ? $(el).find("a").map((_, a) => $(a).text()).get().join(", ")
+      : rest.join(":").trim();
+
+    result.seriesInfo.details[key.trim()] = val;
+  });
+
+  $(".genxed a").each((i, el) => {
+    result.seriesInfo.genres.push($(el).text().trim());
+  });
+
+  result.seriesInfo.synopsis = $(".desc, .synopsis, .synp .entry-content")
+    .text()
+    .trim() || null;
+
+  // Batch download
+  $(".soraddlx").each((_, block) => {
+    const name = $(block).find(".sorattlx h3").text().trim();
+    const batch = { name, links: {} };
+
+    $(block)
+      .find(".soraurlx")
+      .each((__, qblock) => {
+        const quality = $(qblock).find("strong").text().trim();
+        if (!quality) return;
+        const links = [];
+
+        $(qblock)
+          .find("a")
+          .each((___, a) => {
+            links.push({
+              provider: $(a).text().trim(),
+              url: $(a).attr("href"),
+            });
+          });
+
+        batch.links[quality] = links;
       });
-    });
 
-    const episodes = [];
-    $(".eplister ul li").each((i, el) => {
-      const a = $(el).find("a");
-      const num = $(el).find(".epl-num").text().trim() || null;
-      const etitle = $(el).find(".epl-title").text().trim() || null;
-      const date = $(el).find(".epl-date").text().trim() || null;
-      episodes.push({
-        num,
-        etitle,
-        href: a.attr("href") || null,
-        date,
-      });
-    });
+    if (name) result.batches.push(batch);
+  });
 
-    return { title, thumb, alt, synopsis, info, tags, episodes };
-  }
-// --- 9. EPISODE ---
+  // Episode list
+  $(".eplister ul li").each((_, el) => {
+    result.episodes.push({
+      episode: $(el).find(".epl-num").text().trim(),
+      title: $(el).find(".epl-title").text().trim(),
+      releaseDate: $(el).find(".epl-date").text().trim(),
+      url: $(el).find("a").attr("href"),
+    });
+  });
+
+  return result;
+}
+// --- 9. EPISODE (UPDATED) ---
 async episode(urlOrSlug) {
   const path = /^https?:\/\//.test(urlOrSlug)
     ? urlOrSlug
@@ -302,98 +351,108 @@ async episode(urlOrSlug) {
   const html = await this._get(path);
   const $ = cheerio.load(html);
 
-  // Judul & Nama Series
-  const title = $('h1.entry-title').text().trim() || null;
-  const seriesName = $('h2[itemprop="partOfSeries"]').text().trim() || null;
+  const result = {
+    metadata: {},
+    streaming: { mirrorServers: [] },
+    downloads: {},
+    episodeList: [],
+    comments: [],
+    related: [],
+    navigation: {}
+  };
 
-  // Episode Number
-  const epNum =
-    $('meta[itemprop="episodeNumber"]').attr("content") ||
-    title.match(/Episode\s+(\d+)/i)?.[1] ||
-    null;
+  // Metadata
+  result.metadata.title = $("h1.entry-title").text().trim() || null;
+  result.metadata.thumbnail = $('meta[property="og:image"]').attr("content") || null;
+  result.metadata.description = $('meta[property="og:description"]').attr("content") || null;
 
-  // Thumbnail / Poster
-  const thumbnail =
-    $(".single-info img").attr("src") ||
-    $(".megavid .tb img").attr("src") ||
-    $(".thumb img").attr("src") ||
-    null;
-
-  // Info meta (Status, Studio, dll)
-  const info = {};
-  $(".spe span").each((i, el) => {
-    const txt = $(el).text();
-    const parts = txt.split(":");
-    if (parts.length > 1) {
-      const key = parts[0].trim();
-      const value = parts.slice(1).join(":").trim();
-      info[key] = value;
-    }
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const json = JSON.parse($(el).html());
+      if (json['@type'] === "Episode") {
+        result.metadata.datePublished = json.datePublished || null;
+        result.metadata.episodeNumber = json.episodeNumber || null;
+        result.metadata.partOfSeries = json.partOfSeries?.name || null;
+      }
+    } catch {}
   });
 
-  // Link Download (360,480,720,1080)
-  const downloads = [];
-  $(".soraurlx").each((i, el) => {
-    const quality = $(el).find("strong").text().trim() || null;
-    const links = [];
-    $(el)
+  // Streaming mirror (decoded Base64)
+  $("select.mirror option").each((_, el) => {
+    const name = $(el).text().trim();
+    const encoded = $(el).val();
+    if (!encoded) return;
+
+    try {
+      const decoded = Buffer.from(encoded, "base64").toString("utf8");
+      const url = decoded.match(/src="([^"]+)"/)?.[1] || null;
+      result.streaming.mirrorServers.push({ name, url, rawIframe: decoded });
+    } catch {}
+  });
+
+  // Download links per quality
+  $(".mctnx .soraurlx").each((_, el) => {
+    const quality = $(el).find("strong").text().trim();
+    if (!quality) return;
+
+    result.downloads[quality] = $(el)
       .find("a")
-      .each((j, a) => {
-        links.push({
-          provider: $(a).text().trim(),
-          url: $(a).attr("href"),
-        });
-      });
-    if (quality) downloads.push({ quality, links });
+      .map((__, a) => ({
+        provider: $(a).text().trim(),
+        url: $(a).attr("href"),
+      }))
+      .get();
   });
 
-  // Server streaming (list dropdown)
-  const streamingServers = [];
-  $('.mirror option').each((i, el) => {
-    const t = $(el).text().trim();
-    if (t && t !== "Select Video Server") streamingServers.push(t);
-  });
-
-  // Iframe utama / default stream
-  const embedSrc =
-    $("#embed_holder iframe").attr("src") ||
-    $("#pembed iframe").attr("src") ||
-    null;
-
-  // Related Anime
-  const related = [];
-  $(".stylefiv .bsx").each((i, el) => {
+  // Episode list (sidebar)
+  $(".episodelist ul li").each((_, el) => {
     const a = $(el).find("a");
-    related.push({
-      title: a.attr("title") || a.find("h2").text().trim(),
-      href: a.attr("href"),
-      image: a.find("img").attr("src"),
+    result.episodeList.push({
+      title: a.find(".playinfo h3").text().trim(),
+      info: a.find(".playinfo span").text().trim(),
+      url: a.attr("href"),
+      thumbnail: a.find(".thumbnel img").attr("src"),
     });
   });
 
-  // Navigation Prev / Next Episode
-  const nav = {
-    prev: $('.naveps .nvs a[rel="prev"]').attr("href") || null,
-    next: $('.naveps .nvs a[rel="next"]').attr("href") || null,
-    allEpisodes: $(".naveps .nvsc a").attr("href") || null,
-  };
+  // Comments
+  $("#wpd-thread .wpd-comment-wrap").each((_, el) => {
+    const name = $(el).find(".wpd-comment-author").text().trim();
+    if (!name) return;
 
-  return {
-    title,
-    series: seriesName,
-    episode: epNum,
-    thumbnail,
-    info,
-    streaming: {
-      current_source: embedSrc,
-      available_servers: streamingServers,
-    },
-    downloads,
-    related,
-    nav,
-  };
+    result.comments.push({
+      author: name,
+      date: $(el).find(".wpd-comment-date").attr("title") || "",
+      text: $(el)
+        .find(".wpd-comment-text p")
+        .map((__, p) => $(p).text())
+        .get()
+        .join("\n")
+        .trim(),
+    });
+  });
+
+  // Related
+  $(".listupd article").each((_, el) => {
+    const title = $(el).find(".tt h2").text().trim();
+    if (!title) return;
+
+    result.related.push({
+      title,
+      type: $(el).find(".typez").text().trim(),
+      status: $(el).find(".status").text().trim(),
+      link: $(el).find("a").attr("href"),
+      thumb: $(el).find("img").attr("src"),
+    });
+  });
+
+  // Navigation
+  result.navigation.prev = $('.naveps .nvs a[rel="prev"]').attr("href") || null;
+  result.navigation.next = $('.naveps .nvs a[rel="next"]').attr("href") || null;
+  result.navigation.all = $(".naveps .nvsc a").attr("href") || null;
+
+  return result;
 }
-
   // --- 10. SEARCH ---
   async search(query, page = 1) {
     const q = encodeURIComponent(query);
