@@ -439,41 +439,62 @@ async episode(urlOrSlug) {
 
     return { query, page, results, pagination: { next_page, prev_page } };
   }
-
-  // --- 11. COMPLETED ---
-  async completed(page = 1) {
-    const html = await this._get(page > 1 ? `/completed/page/${page}/` : "/completed/");
+async completed(page = 1) {
+    // Konstruksi URL langsung dengan parameter filter
+    const baseUrl = "https://anichin.cafe/seri/";
+    const url = `${baseUrl}?page=${page}&status=completed&type=&order=`;
+    
+    const html = await this._get(url);
     const $ = cheerio.load(html);
 
     const items = [];
-    $(".bixbox .listupd article.bs").each((i, el) => {
-      const a = $(el).find("a").first();
-      const href = a.attr("href") || null;
-      const title = a.find("h2").text().trim() || a.attr("title") || null;
+    
+    // Selektor untuk list anime
+    $(".listupd article.bs").each((i, el) => {
+      const container = $(el);
+      const a = container.find("a").first();
+      
+      const title = container.find(".tt h2").text().trim() || a.attr("title");
+      const href = a.attr("href");
+      const image = container.find("img").attr("src");
+      
+      // Metadata spesifik tema Animestream
+      const ep = container.find(".epx").text().trim();
+      const type = container.find(".typez").text().trim();
+      const sub = container.find(".sb").text().trim();
+      const statusTag = container.find(".status").text().trim();
 
-      const ep = a.find(".epx").text().trim() || null;
-      const type = a.find(".typez").text().trim() || null;
-      const status = a.find(".sb").text().trim() || null;
-
-      const image = a.find("img").attr("src") || null;
-      const desc = a.attr("title") || null;
-
-      items.push({ title, href, image, ep, type, status, description: desc });
+      items.push({ 
+        title, 
+        href, 
+        image, 
+        episode: ep, 
+        type, 
+        sub,
+        status: statusTag,
+        description: a.attr("title") 
+      });
     });
 
+    // Navigasi halaman menggunakan class 'r' (Next) dan 'l' (Prev)
     let next_page = null;
     let prev_page = null;
 
-    $(".pagination a, .nav-links a").each((i, el) => {
-      const t = $(el).text().toLowerCase();
-      const h = $(el).attr("href");
-      if (t.includes("next")) next_page = h;
-      if (t.includes("prev")) prev_page = h;
+    $(".hpage a").each((i, el) => {
+      const link = $(el).attr("href");
+      // Mengonversi link relatif menjadi link lengkap jika perlu
+      const fullLink = link.startsWith('http') ? link : `https://anichin.cafe/seri/${link}`;
+      
+      if ($(el).hasClass("r")) next_page = fullLink;
+      if ($(el).hasClass("l")) prev_page = fullLink;
     });
 
-    return { page, items, pagination: { next_page, prev_page } };
-  }
-
+    return { 
+      page: parseInt(page), 
+      items, 
+      pagination: { next_page, prev_page } 
+    };
+}
   // --- 12. SCHEDULE ---
   async schedule() {
     const html = await this._get("/schedule/");
