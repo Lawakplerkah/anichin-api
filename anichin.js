@@ -1,9 +1,6 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 
-const axios = require("axios");
-const cheerio = require("cheerio");
-
 class Anichin {
   constructor(baseUrl = "https://anichin.cafe") {
     this.baseUrl = baseUrl.replace(/\/+$/, "");
@@ -21,7 +18,6 @@ class Anichin {
         "Sec-Fetch-Site": "none",
         "Sec-Fetch-User": "?1",
         "Cache-Control": "max-age=0",
-        // HAPUS Content-Type — tidak perlu untuk GET request
       },
       timeout: 15000,
     });
@@ -33,7 +29,7 @@ class Anichin {
     return res.data;
   }
 
-  // --- 1. SWIPPER SLIDER ---
+  // --- 1. SWIPER SLIDER ---
   async SwipperSlide() {
     const html = await this._get("/");
     const $ = cheerio.load(html);
@@ -41,7 +37,7 @@ class Anichin {
 
     $("#slidertwo .swiper-slide.item").each((i, el) => {
       const slide = $(el);
-      const backdrop = slide.find('.backdrop').attr('style') || '';
+      const backdrop = slide.find(".backdrop").attr("style") || "";
       const bg = backdrop.match(/url\(['"]?(.*?)['"]?\)/);
       const image = bg ? bg[1] : null;
 
@@ -74,13 +70,10 @@ class Anichin {
       .each((i, el) => {
         const a = $(el).find("a").first();
         const href = a.attr("href") || null;
-
         const title = a.find("h2").text().trim() || a.attr("title") || null;
         const image = a.find("img").attr("src") || null;
-
         const ep = a.find(".epx").text().trim() || null;
         const type = a.find(".typez").text().trim() || null;
-
         let status = a.find(".sb").text().trim();
         if (!status) status = a.find(".status").text().trim() || null;
 
@@ -94,8 +87,8 @@ class Anichin {
   async latest(page = 1) {
     const html = await this._get(page > 1 ? `/page/${page}/` : "/");
     const $ = cheerio.load(html);
-
     const items = [];
+
     $(".releases.latesthome")
       .nextAll(".listupd")
       .first()
@@ -104,11 +97,9 @@ class Anichin {
         const a = $(el).find("a").first();
         const href = a.attr("href") || null;
         const title = a.find("h2").text().trim() || a.attr("title") || null;
-
         const ep = a.find(".epx").text().trim() || null;
         const type = a.find(".typez").text().trim() || null;
         const status = a.find(".sb").text().trim() || null;
-
         const image = a.find("img").attr("src") || null;
         const desc = a.attr("title") || null;
 
@@ -132,19 +123,15 @@ class Anichin {
   async ongoing(page = 1) {
     const html = await this._get(page > 1 ? `/ongoing/page/${page}/` : "/ongoing/");
     const $ = cheerio.load(html);
-
     const items = [];
-    
+
     $(".listupd article.bs").each((i, el) => {
       const a = $(el).find("a").first();
       const href = a.attr("href") || null;
-      
       const title = a.find("h2").text().trim() || a.attr("title") || null;
-
       const image = a.find("img").attr("src") || null;
-      const type = a.find(".typez").text().trim() || null; // Contoh: Donghua
-      
-      const status = a.find(".epx").text().trim() || null; 
+      const type = a.find(".typez").text().trim() || null;
+      const status = a.find(".epx").text().trim() || null;
       const sub = a.find(".sb").text().trim() || null;
 
       items.push({ title, href, image, type, status, sub });
@@ -170,36 +157,30 @@ class Anichin {
 
     const params = new URLSearchParams();
 
-    // Checkboxes
     if (filters.genre && Array.isArray(filters.genre)) {
-      filters.genre.forEach(val => params.append('genre[]', val));
+      filters.genre.forEach((val) => params.append("genre[]", val));
     }
     if (filters.season && Array.isArray(filters.season)) {
-      filters.season.forEach(val => params.append('season[]', val));
+      filters.season.forEach((val) => params.append("season[]", val));
     }
     if (filters.studio && Array.isArray(filters.studio)) {
-      filters.studio.forEach(val => params.append('studio[]', val));
+      filters.studio.forEach((val) => params.append("studio[]", val));
     }
-    
-    // Radios & Order
-    if (filters.status) params.append('status', filters.status);
-    if (filters.type) params.append('type', filters.type);
-    if (filters.sub) params.append('sub', filters.sub);
-    if (filters.order) params.append('order', filters.order);
-
-    // Letter Support (A-Z)
-    if (filters.letter) params.append('letter', filters.letter);
+    if (filters.status) params.append("status", filters.status);
+    if (filters.type) params.append("type", filters.type);
+    if (filters.sub) params.append("sub", filters.sub);
+    if (filters.order) params.append("order", filters.order);
+    if (filters.letter) params.append("letter", filters.letter);
 
     const url = params.toString() ? `${path}?${params.toString()}` : path;
     const html = await this._get(url);
     const $ = cheerio.load(html);
-
     const items = [];
+
     $(".listupd .bsx, .listupd article.bs").each((i, el) => {
       const a = $(el).find("a").first();
       const href = a.attr("href") || null;
       const title = a.find("h2").text().trim() || a.attr("title") || null;
-
       const image = a.find("img").attr("src") || null;
       const ep = a.find(".epx").text().trim() || null;
       const type = a.find(".typez").text().trim() || null;
@@ -218,26 +199,18 @@ class Anichin {
       if (t.includes("prev")) prev_page = h;
     });
 
-    return {
-      page,
-      filters_applied: filters,
-      items,
-      pagination: { next_page, prev_page }
-    };
+    return { page, filters_applied: filters, items, pagination: { next_page, prev_page } };
   }
 
-  // --- 6. AZ LIST (HURUF A-Z) ---
+  // --- 6. AZ LIST ---
   async azList() {
     const html = await this._get("/");
     const $ = cheerio.load(html);
-
     const items = [];
-    
-    // Selector .footer-az .az-list li a
+
     $(".footer-az .az-list li a").each((i, el) => {
       const letter = $(el).text().trim();
       const href = $(el).attr("href");
-      
       items.push({ letter, href });
     });
 
@@ -249,8 +222,7 @@ class Anichin {
     const html = await this._get("/");
     const $ = cheerio.load(html);
     const items = [];
-    
-    // Ambil genre dari sidebar checkbox input[name='genre[]']
+
     $("#sidebar .quickfilter ul.dropdown-menu li input[name='genre[]']").each((i, el) => {
       const value = $(el).attr("value");
       const label = $(el).next("label").text().trim();
@@ -261,176 +233,175 @@ class Anichin {
 
     return items;
   }
-// --- 8. DETAIL SERIES (UPDATED) ---
- async detail(urlOrSlug) {
-    const path = /^https?:\/\//.test(urlOrSlug) ? urlOrSlug : `/seri/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`
 
-    const html = await this._get(path)
-    const $ = cheerio.load(html)
+  // --- 8. DETAIL SERIES ---
+  async detail(urlOrSlug) {
+    const path = /^https?:\/\//.test(urlOrSlug)
+      ? urlOrSlug
+      : `/seri/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
 
-    const title = $(".entry-title").first().text().trim() || null
-    const thumb = $(".thumbook img").attr("src") || null
+    const html = await this._get(path);
+    const $ = cheerio.load(html);
 
-    const alt = $(".alter").text().trim() || null
-    const synopsis = $(".synp .entry-content").text().trim() || null
+    const title = $(".entry-title").first().text().trim() || null;
+    const thumb = $(".thumbook img").attr("src") || null;
+    const alt = $(".alter").text().trim() || null;
 
-    const info = {}
-    $(".infox .spe span").each((i, el) => {
-      const txt = $(el).text().replace(/\s+/g, " ").trim()
-      const [key, ...rest] = txt.split(":")
-      if (key && rest.length > 0) info[key.trim().toLowerCase()] = rest.join(":").trim()
-    })
+    let synopsis = $(".entry-content .synp p").text().trim();
+    if (!synopsis) synopsis = $(".entry-content p").first().text().trim() || null;
 
-    const tags = []
+    const info = {};
+    $(".spe span").each((i, el) => {
+      const key = $(el).find("b").text().replace(":", "").trim().toLowerCase();
+      const val = $(el).clone().children("b").remove().end().text().trim();
+      if (key) info[key] = val || null;
+    });
+
+    const tags = [];
     $(".bottom.tags a").each((i, el) => {
       tags.push({
         name: $(el).text().trim(),
         href: $(el).attr("href"),
-      })
-    })
+      });
+    });
 
-    const episodes = []
+    const episodes = [];
     $(".eplister ul li").each((i, el) => {
-      const a = $(el).find("a")
-      const num = $(el).find(".epl-num").text().trim() || null
-      const etitle = $(el).find(".epl-title").text().trim() || null
-      const date = $(el).find(".epl-date").text().trim() || null
+      const a = $(el).find("a");
+      const num = $(el).find(".epl-num").text().trim() || null;
+      const etitle = $(el).find(".epl-title").text().trim() || null;
+      const date = $(el).find(".epl-date").text().trim() || null;
       episodes.push({
         num,
         etitle,
         href: a.attr("href") || null,
         date,
-      })
-    })
+      });
+    });
 
-    return { title, thumb, alt, synopsis, info, tags, episodes }
+    return { title, thumb, alt, synopsis, info, tags, episodes };
   }
-// --- 9. EPISODE (UPDATED) ---
-async episode(urlOrSlug) {
-  const path = /^https?:\/\//.test(urlOrSlug)
-    ? urlOrSlug
-    : `/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
 
-  const html = await this._get(path);
-  const $ = cheerio.load(html);
+  // --- 9. EPISODE ---
+  async episode(urlOrSlug) {
+    const path = /^https?:\/\//.test(urlOrSlug)
+      ? urlOrSlug
+      : `/${urlOrSlug.replace(/^\/+|\/+$/g, "")}/`;
 
-  const result = {
-    metadata: {},
-    streaming: { mirrorServers: [] },
-    downloads: {},
-    episodeList: [],
-    comments: [],
-    related: [],
-    navigation: {}
-  };
+    const html = await this._get(path);
+    const $ = cheerio.load(html);
 
-  // Metadata
-  result.metadata.title = $("h1.entry-title").text().trim() || null;
-  result.metadata.thumbnail = $('meta[property="og:image"]').attr("content") || null;
-  result.metadata.description = $('meta[property="og:description"]').attr("content") || null;
+    const result = {
+      metadata: {},
+      streaming: { mirrorServers: [] },
+      downloads: {},
+      episodeList: [],
+      comments: [],
+      related: [],
+      navigation: {},
+    };
 
-  $('script[type="application/ld+json"]').each((_, el) => {
-    try {
-      const json = JSON.parse($(el).html());
-      if (json['@type'] === "Episode") {
-        result.metadata.datePublished = json.datePublished || null;
-        result.metadata.episodeNumber = json.episodeNumber || null;
-        result.metadata.partOfSeries = json.partOfSeries?.name || null;
-      }
-    } catch {}
-  });
+    // Metadata
+    result.metadata.title = $("h1.entry-title").text().trim() || null;
+    result.metadata.thumbnail = $('meta[property="og:image"]').attr("content") || null;
+    result.metadata.description = $('meta[property="og:description"]').attr("content") || null;
 
-  // Streaming mirror (decoded Base64)
-  $("select.mirror option").each((_, el) => {
-    const name = $(el).text().trim();
-    const encoded = $(el).val();
-    if (!encoded) return;
-
-    try {
-      const decoded = Buffer.from(encoded, "base64").toString("utf8");
-      const url = decoded.match(/src="([^"]+)"/)?.[1] || null;
-      result.streaming.mirrorServers.push({ name, url, rawIframe: decoded });
-    } catch {}
-  });
-
-  // Download links per quality
-  $(".mctnx .soraurlx").each((_, el) => {
-    const quality = $(el).find("strong").text().trim();
-    if (!quality) return;
-
-    result.downloads[quality] = $(el)
-      .find("a")
-      .map((__, a) => ({
-        provider: $(a).text().trim(),
-        url: $(a).attr("href"),
-      }))
-      .get();
-  });
-
-  // Episode list (sidebar)
-  $(".episodelist ul li").each((_, el) => {
-    const a = $(el).find("a");
-    result.episodeList.push({
-      title: a.find(".playinfo h3").text().trim(),
-      info: a.find(".playinfo span").text().trim(),
-      url: a.attr("href"),
-      thumbnail: a.find(".thumbnel img").attr("src"),
+    $('script[type="application/ld+json"]').each((_, el) => {
+      try {
+        const json = JSON.parse($(el).html());
+        if (json["@type"] === "Episode") {
+          result.metadata.datePublished = json.datePublished || null;
+          result.metadata.episodeNumber = json.episodeNumber || null;
+          result.metadata.partOfSeries = json.partOfSeries?.name || null;
+        }
+      } catch {}
     });
-  });
 
-  // Comments
-  $("#wpd-thread .wpd-comment-wrap").each((_, el) => {
-    const name = $(el).find(".wpd-comment-author").text().trim();
-    if (!name) return;
-
-    result.comments.push({
-      author: name,
-      date: $(el).find(".wpd-comment-date").attr("title") || "",
-      text: $(el)
-        .find(".wpd-comment-text p")
-        .map((__, p) => $(p).text())
-        .get()
-        .join("\n")
-        .trim(),
+    // Streaming mirrors (decoded Base64)
+    $("select.mirror option").each((_, el) => {
+      const name = $(el).text().trim();
+      const encoded = $(el).val();
+      if (!encoded) return;
+      try {
+        const decoded = Buffer.from(encoded, "base64").toString("utf8");
+        const url = decoded.match(/src="([^"]+)"/)?.[1] || null;
+        result.streaming.mirrorServers.push({ name, url, rawIframe: decoded });
+      } catch {}
     });
-  });
 
-  // Related
-  $(".listupd article").each((_, el) => {
-    const title = $(el).find(".tt h2").text().trim();
-    if (!title) return;
-
-    result.related.push({
-      title,
-      type: $(el).find(".typez").text().trim(),
-      status: $(el).find(".status").text().trim(),
-      link: $(el).find("a").attr("href"),
-      thumb: $(el).find("img").attr("src"),
+    // Download links per quality
+    $(".mctnx .soraurlx").each((_, el) => {
+      const quality = $(el).find("strong").text().trim();
+      if (!quality) return;
+      result.downloads[quality] = $(el)
+        .find("a")
+        .map((__, a) => ({
+          provider: $(a).text().trim(),
+          url: $(a).attr("href"),
+        }))
+        .get();
     });
-  });
 
-  // Navigation
-  result.navigation.prev = $('.naveps .nvs a[rel="prev"]').attr("href") || null;
-  result.navigation.next = $('.naveps .nvs a[rel="next"]').attr("href") || null;
-  result.navigation.all = $(".naveps .nvsc a").attr("href") || null;
+    // Episode list (sidebar)
+    $(".episodelist ul li").each((_, el) => {
+      const a = $(el).find("a");
+      result.episodeList.push({
+        title: a.find(".playinfo h3").text().trim(),
+        info: a.find(".playinfo span").text().trim(),
+        url: a.attr("href"),
+        thumbnail: a.find(".thumbnel img").attr("src"),
+      });
+    });
 
-  return result;
-}
+    // Comments
+    $("#wpd-thread .wpd-comment-wrap").each((_, el) => {
+      const name = $(el).find(".wpd-comment-author").text().trim();
+      if (!name) return;
+      result.comments.push({
+        author: name,
+        date: $(el).find(".wpd-comment-date").attr("title") || "",
+        text: $(el)
+          .find(".wpd-comment-text p")
+          .map((__, p) => $(p).text())
+          .get()
+          .join("\n")
+          .trim(),
+      });
+    });
+
+    // Related
+    $(".listupd article").each((_, el) => {
+      const title = $(el).find(".tt h2").text().trim();
+      if (!title) return;
+      result.related.push({
+        title,
+        type: $(el).find(".typez").text().trim(),
+        status: $(el).find(".status").text().trim(),
+        link: $(el).find("a").attr("href"),
+        thumb: $(el).find("img").attr("src"),
+      });
+    });
+
+    // Navigation
+    result.navigation.prev = $('.naveps .nvs a[rel="prev"]').attr("href") || null;
+    result.navigation.next = $('.naveps .nvs a[rel="next"]').attr("href") || null;
+    result.navigation.all = $(".naveps .nvsc a").attr("href") || null;
+
+    return result;
+  }
+
   // --- 10. SEARCH ---
   async search(query, page = 1) {
     const q = encodeURIComponent(query);
     const html = await this._get(page > 1 ? `/page/${page}/?s=${q}` : `/?s=${q}`);
     const $ = cheerio.load(html);
-
     const results = [];
 
     $(".bixbox .listupd article.bs").each((i, el) => {
       const a = $(el).find("a");
-
       const title = a.find("h2").text().trim() || a.attr("title") || null;
       const href = a.attr("href") || null;
       const image = a.find("img").attr("src") || null;
-
       const ep = a.find(".epx").text().trim() || null;
       let status = a.find(".status").text().trim();
       if (!status) status = a.find(".sb").text().trim() || null;
@@ -452,67 +423,45 @@ async episode(urlOrSlug) {
 
     return { query, page, results, pagination: { next_page, prev_page } };
   }
-async completed(page = 1) {
-    // Konstruksi URL langsung dengan parameter filter
-    const baseUrl = "https://anichin.cafe/seri/";
-    const url = `${baseUrl}?page=${page}&status=completed&type=&order=`;
-    
-    const html = await this._get(url);
-    const $ = cheerio.load(html);
 
+  // --- 11. COMPLETED ---
+  async completed(page = 1) {
+    const url = `/seri/?status=completed&type=&order=`;
+    const html = await this._get(page > 1 ? `/seri/page/${page}/?status=completed&type=&order=` : url);
+    const $ = cheerio.load(html);
     const items = [];
-    
-    // Selektor untuk list anime
+
     $(".listupd article.bs").each((i, el) => {
       const container = $(el);
       const a = container.find("a").first();
-      
-      const title = container.find(".tt h2").text().trim() || a.attr("title");
-      const href = a.attr("href");
-      const image = container.find("img").attr("src");
-      
-      // Metadata spesifik tema Animestream
-      const ep = container.find(".epx").text().trim();
-      const type = container.find(".typez").text().trim();
-      const sub = container.find(".sb").text().trim();
-      const statusTag = container.find(".status").text().trim();
+      const title = container.find(".tt h2").text().trim() || a.attr("title") || null;
+      const href = a.attr("href") || null;
+      const image = container.find("img").attr("src") || null;
+      const ep = container.find(".epx").text().trim() || null;
+      const type = container.find(".typez").text().trim() || null;
+      const sub = container.find(".sb").text().trim() || null;
+      const status = container.find(".status").text().trim() || null;
 
-      items.push({ 
-        title, 
-        href, 
-        image, 
-        episode: ep, 
-        type, 
-        sub,
-        status: statusTag,
-        description: a.attr("title") 
-      });
+      items.push({ title, href, image, episode: ep, type, sub, status, description: a.attr("title") || null });
     });
 
-    // Navigasi halaman menggunakan class 'r' (Next) dan 'l' (Prev)
     let next_page = null;
     let prev_page = null;
 
     $(".hpage a").each((i, el) => {
-      const link = $(el).attr("href");
-      // Mengonversi link relatif menjadi link lengkap jika perlu
-      const fullLink = link.startsWith('http') ? link : `https://anichin.cafe/seri/${link}`;
-      
+      const link = $(el).attr("href") || "";
+      const fullLink = link.startsWith("http") ? link : `${this.baseUrl}/seri/${link}`;
       if ($(el).hasClass("r")) next_page = fullLink;
       if ($(el).hasClass("l")) prev_page = fullLink;
     });
 
-    return { 
-      page: parseInt(page), 
-      items, 
-      pagination: { next_page, prev_page } 
-    };
-}
+    return { page: parseInt(page), items, pagination: { next_page, prev_page } };
+  }
+
   // --- 12. SCHEDULE ---
   async schedule() {
     const html = await this._get("/schedule/");
     const $ = cheerio.load(html);
-
     const days = [];
 
     $(".bixbox.schedulepage").each((i, el) => {
@@ -523,11 +472,9 @@ async completed(page = 1) {
         .find(".listupd .bsx")
         .each((j, be) => {
           const a = $(be).find("a");
-
           const title = a.attr("title") || $(be).find(".tt").text().trim() || null;
           const href = a.attr("href") || null;
           const image = a.find("img").attr("src") || null;
-
           const at = $(be).find(".epx").text().trim() || null;
           const sb = $(be).find(".sb").text().trim() || null;
 
